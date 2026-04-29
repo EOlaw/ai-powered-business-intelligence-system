@@ -33,12 +33,9 @@ coverage/
 logs/
 *.log
 storage/logs/
+**/storage/logs/
 
 # Data and model artifacts
-storage/checkpoints/
-storage/datasets/
-storage/models/
-storage/tokenizers/
 *.pt
 *.pth
 *.ckpt
