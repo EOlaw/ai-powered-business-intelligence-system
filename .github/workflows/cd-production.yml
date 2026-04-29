@@ -1,0 +1,110 @@
+# InsightSerenity — Continuous Deployment to Production
+# =======================================================
+# Triggered when a GitHub Release is published (tag vX.Y.Z).
+# Requires manual approval via the "production" environment protection rule.
+
+name: CD — Production
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production   # Requires approval in GitHub environment settings
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region:     ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push api-gateway (versioned + latest tags)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file:    infra/docker/api-gateway.Dockerfile
+          push:    true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/insightserenity-production/api-gateway:${{ github.event.release.tag_name }}
+            ${{ steps.ecr-login.outputs.registry }}/insightserenity-production/api-gateway:latest
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Build & push ai-engine (versioned + latest tags)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file:    infra/docker/ai-engine.Dockerfile
+          push:    true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/insightserenity-production/ai-engine:${{ github.event.release.tag_name }}
+            ${{ steps.ecr-login.outputs.registry }}/insightserenity-production/ai-engine:latest
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Configure kubectl (production cluster)
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME_PROD }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Run DB migrations (zero-downtime)
+        run: |
+          kubectl run db-migrate-prod-${{ github.run_id }} \
+            --image=${{ steps.ecr-login.outputs.registry }}/insightserenity-production/api-gateway:${{ github.event.release.tag_name }} \
+            --restart=Never \
+            --env="DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" \
+            -n insightserenity-production \
+            --command -- npx prisma migrate deploy
+          kubectl wait --for=condition=complete pod/db-migrate-prod-${{ github.run_id }} \
+            -n insightserenity-production --timeout=180s
+          kubectl delete pod db-migrate-prod-${{ github.run_id }} -n insightserenity-production --ignore-not-found
+
+      - name: Deploy with Kustomize (rolling update)
+        run: kubectl apply -k infra/k8s/overlays/production
+
+      - name: Wait for rollout (with timeout)
+        run: |
+          kubectl rollout status deployment/api-gateway -n insightserenity-production --timeout=600s
+          kubectl rollout status deployment/ai-engine   -n insightserenity-production --timeout=600s
+
+      - name: Production health check
+        run: |
+          GW_URL=$(kubectl get svc api-gateway -n insightserenity-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          for i in 1 2 3; do
+            if curl -sf "https://${GW_URL}/health"; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed — initiating rollback"
+          kubectl rollout undo deployment/api-gateway -n insightserenity-production
+          exit 1
+
+      - name: Tag release as deployed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner:   context.repo.owner,
+              repo:    context.repo.repo,
+              commit_sha: context.sha,
+              body:    `✅ Deployed to production: ${{ github.event.release.tag_name }}`
+            })

@@ -1,0 +1,204 @@
+// InsightSerenity API Gateway — Prisma Schema
+// =============================================
+// PostgreSQL database schema for the public-facing API gateway layer.
+// Manages users, organisations, API keys, billing subscriptions, and usage.
+//
+// Naming conventions:
+//   - All IDs are CUID (collision-resistant, url-safe, 25 chars)
+//   - Foreign keys use camelCase fieldName + "Id" suffix
+//   - Index every foreign key used in WHERE clauses
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships OrgMembership[]
+  sessions    Session[]
+
+  @@index([email])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Organisations (multi-tenant)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique   // URL-safe lowercase identifier
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      OrgMembership[]
+  apiKeys      ApiKey[]
+  subscription Subscription?
+  usage        UsageRecord[]
+  webhooks     Webhook[]
+
+  @@index([slug])
+}
+
+model OrgMembership {
+  id     String  @id @default(cuid())
+  userId String
+  orgId  String
+  role   OrgRole @default(MEMBER)
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId],  references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API Keys — INSIGHTSERENITY_API_KEY
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  orgId      String
+  name       String                         // Human label: "Production Key"
+  keyHash    String    @unique              // SHA-256 of the raw key (never store raw)
+  keyPrefix  String                         // First 8 chars of raw key for display: "is_sk_Ab"
+  scopes     String[]  @default([])         // ["completions:create", "embeddings:create", …]
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  usage UsageRecord[]
+
+  @@index([orgId])
+  @@index([keyHash])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sessions (JWT refresh-token tracking)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  jti       String   @unique   // JWT ID claim — used to invalidate specific tokens
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([jti])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Billing — Plan subscriptions and quota state
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id               String    @id @default(cuid())
+  orgId            String    @unique
+  plan             Plan
+  status           SubStatus @default(ACTIVE)
+  tokensPerDay     Int       @default(1000)
+  requestsPerMin   Int       @default(10)
+  currentDayTokens Int       @default(0)      // Rolling counter, reset daily
+  quotaResetAt     DateTime  @default(now())  // When currentDayTokens was last reset
+  startsAt         DateTime  @default(now())
+  endsAt           DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Usage Records — immutable append-only log
+// ─────────────────────────────────────────────────────────────────────────────
+
+model UsageRecord {
+  id               String   @id @default(cuid())
+  orgId            String
+  apiKeyId         String
+  endpoint         String   // "/v1/chat/completions"
+  method           String   @default("POST")
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  latencyMs        Int      @default(0)
+  statusCode       Int
+  model            String   @default("insightserenity-1")
+  createdAt        DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId],    references: [id])
+  apiKey ApiKey       @relation(fields: [apiKeyId], references: [id])
+
+  // Index for per-org time-range queries (dashboard, billing)
+  @@index([orgId, createdAt])
+  // Index for per-key queries (key analytics)
+  @@index([apiKeyId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhooks — event delivery to org-owned endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Webhook {
+  id        String   @id @default(cuid())
+  orgId     String
+  url       String
+  events    String[] // ["usage.limit_reached", "key.revoked", "subscription.renewed"]
+  secret    String   // HMAC-SHA256 signing secret, random on creation
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELLED
+}

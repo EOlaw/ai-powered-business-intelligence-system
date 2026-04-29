@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# InsightSerenity AI Engine — Python Dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+# Install: pip install -r requirements.txt
+# For development: pip install -r requirements.txt -r requirements-dev.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Core ML framework ─────────────────────────────────────────────────────────
+torch>=2.2.0                  # Deep learning framework (install the CUDA build separately)
+numpy>=1.26.0                 # Numerical computing
+scipy>=1.12.0                 # Scientific computing (used in RL, stats)
+
+# ── Configuration ──────────────────────────────────────────────────────────────
+pydantic>=2.7.0               # Data validation
+pydantic-settings>=2.3.0      # Settings from environment variables
+
+# ── Async web crawler ─────────────────────────────────────────────────────────
+httpx>=0.27.0                 # Async HTTP client (replaces aiohttp)
+beautifulsoup4>=4.12.0        # HTML parsing
+lxml>=5.2.0                   # Fast HTML/XML parser (bs4 backend)
+aiofiles>=23.2.0              # Async file I/O
+
+# ── Text processing ────────────────────────────────────────────────────────────
+# No heavy NLP deps at this stage — we build our own tokenizer
+
+# ── Deduplication ─────────────────────────────────────────────────────────────
+# MinHash uses only numpy (no extra deps needed)
+
+# ── Vector store (for agent memory) ───────────────────────────────────────────
+faiss-cpu>=1.8.0              # FAISS similarity search (CPU version)
+# faiss-gpu>=1.8.0            # GPU version — uncomment if CUDA available
+
+# ── API serving ────────────────────────────────────────────────────────────────
+fastapi>=0.111.0              # Web framework for the inference API
+uvicorn[standard]>=0.30.0     # ASGI server with WebSocket + HTTP/2 support
+python-multipart>=0.0.9       # Form data parsing for FastAPI
+prometheus-client>=0.20.0     # Prometheus metrics exposition (/metrics endpoint)
+
+# ── Queue / task processing ───────────────────────────────────────────────────
+celery[redis]>=5.4.0          # Async task queue for background training jobs
+redis>=5.0.0                  # Redis client for Celery broker
+
+# ── Experiment tracking ────────────────────────────────────────────────────────
+mlflow>=2.13.0                # Self-hosted experiment tracking (no cloud required)
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+tqdm>=4.66.0                  # Progress bars
+python-dotenv>=1.0.0          # Load .env files
+click>=8.1.0                  # CLI framework
+rich>=13.7.0                  # Rich terminal output

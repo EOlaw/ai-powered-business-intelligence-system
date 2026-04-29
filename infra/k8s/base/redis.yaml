@@ -1,0 +1,62 @@
+# Redis StatefulSet — rate limiting, queues, caching
+# Note: For production at scale, use Redis Cluster or AWS ElastiCache.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: [redis-server, --appendonly, "yes", --maxmemory, 1gb, --maxmemory-policy, allkeys-lru]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu:    100m
+              memory: 256Mi
+            limits:
+              cpu:    500m
+              memory: 1.5Gi
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+  clusterIP: None

@@ -1,0 +1,163 @@
+# InsightSerenity — Full Local Development Stack
+# ================================================
+# Starts all services with a single: docker compose up
+#
+# Host port assignments (remapped to avoid conflicts with other projects):
+#   postgres     — 5434:5432
+#   redis        — 6380:6379
+#   api-gateway  — 3100:3000
+#   ai-engine    — 8001:8001
+#   worker       — (no host port — internal only)
+#   dashboard    — 3101:3001
+#
+# Hot-reload:
+#   api-gateway mounts ./apps/api-gateway/src as a volume for tsx --watch
+#   ai-engine   mounts ./apps/ai-engine/src   for uvicorn --reload
+#   worker      mounts ./apps/worker/src       for tsx --watch
+#
+# Usage:
+#   docker compose up                        — Start all services
+#   docker compose up postgres redis         — Just infrastructure
+#   docker compose logs -f api-gateway       — Follow a specific service
+
+volumes:
+  postgres_data:
+  redis_data:
+  model_storage:
+
+networks:
+  insightserenity:
+    driver: bridge
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: is_postgres
+    restart: unless-stopped
+    networks: [insightserenity]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER:     insightserenity
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB:       insightserenity_gateway
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insightserenity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: is_redis
+    restart: unless-stopped
+    networks: [insightserenity]
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── API Gateway ────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api-gateway.Dockerfile
+      target: builder   # dev: builder stage includes devDeps (tsx, prisma CLI)
+    container_name: is_api_gateway
+    restart: unless-stopped
+    networks: [insightserenity]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    volumes:
+      - ../../apps/api-gateway/src:/app/src:ro   # Hot-reload source
+    ports:
+      - "3100:3000"
+    environment:
+      NODE_ENV:                    development
+      PORT:                        3000
+      DATABASE_URL:                postgresql://insightserenity:password@postgres:5432/insightserenity_gateway
+      REDIS_URL:                   redis://redis:6379
+      JWT_ACCESS_SECRET:           dev_access_secret_change_in_prod_32chars
+      JWT_REFRESH_SECRET:          dev_refresh_secret_change_in_prod_32chars
+      AI_ENGINE_URL:               http://ai-engine:8001
+      SERVING_INTERNAL_API_SECRET: change-me-in-production
+      LOG_LEVEL:                   debug
+      LOG_PRETTY:                  "true"
+      CORS_ORIGINS:                "*"
+    command: >
+      sh -c "npx prisma migrate deploy && npx tsx watch src/server.ts"
+
+  # ── AI Engine ──────────────────────────────────────────────────────────────
+  ai-engine:
+    build:
+      context: ../..
+      dockerfile: infra/docker/ai-engine.Dockerfile
+      target: builder
+    container_name: is_ai_engine
+    restart: unless-stopped
+    networks: [insightserenity]
+    volumes:
+      - ../../apps/ai-engine/src:/app/src:ro
+      - model_storage:/app/storage
+    ports:
+      - "8001:8001"
+    environment:
+      ENVIRONMENT:                 development
+      SERVING_PORT:                8001
+      SERVING_INTERNAL_API_SECRET: change-me-in-production
+      LOG_LEVEL:                   DEBUG
+      PYTHONPATH:                  /install/lib/python3.11/site-packages:/app
+      DEVICE:                      cpu
+    command: >
+      python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # ── Worker ─────────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+      target: builder   # dev: builder stage includes devDeps (tsx)
+    container_name: is_worker
+    restart: unless-stopped
+    networks: [insightserenity]
+    depends_on:
+      redis: { condition: service_healthy }
+    volumes:
+      - ../../apps/worker/src:/app/src:ro   # Hot-reload source
+    environment:
+      NODE_ENV:       development
+      REDIS_URL:      redis://redis:6379
+      AI_ENGINE_URL:  http://ai-engine:8001
+      LOG_LEVEL:      debug
+      LOG_PRETTY:     "true"
+    command: npx tsx watch src/main.ts
+
+  # ── Dashboard ──────────────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: infra/docker/dashboard.Dockerfile
+      args:
+        NEXT_PUBLIC_GATEWAY_URL: http://localhost:3100
+    container_name: is_dashboard
+    restart: unless-stopped
+    networks: [insightserenity]
+    depends_on:
+      - api-gateway
+    ports:
+      - "3101:3001"
+    environment:
+      NODE_ENV:                   production
+      NEXT_PUBLIC_GATEWAY_URL:    http://localhost:3100

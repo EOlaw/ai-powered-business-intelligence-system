@@ -1,0 +1,25 @@
+{
+  "version": "v0.0.1-demo",
+  "model_name": "insightserenity-1",
+  "model_type": "gpt",
+  "param_count": 85334784,
+  "vocab_size": 128,
+  "d_model": 768,
+  "num_layers": 12,
+  "num_heads": 12,
+  "max_seq_len": 64,
+  "perplexity": null,
+  "val_loss": null,
+  "train_loss": 3.3373,
+  "global_step": 1,
+  "checksum_sha256": "0efa840b3f18ee9d79ea8384a29517a4e615ff1e8a8368165bee5f9e4b8bab0b",
+  "training_run": "demo-smoke",
+  "checkpoint_step": "step_00000001",
+  "promoted_at": "2026-04-26T18:07:28.152533+00:00",
+  "promoted_by": "scripts/models/promote.py",
+  "capabilities": [
+    "text-generation",
+    "chat",
+    "embeddings"
+  ]
+}

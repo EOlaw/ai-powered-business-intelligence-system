@@ -1,0 +1,14 @@
+{
+  "tokenizer_class": "BPETokenizer",
+  "vocab_size": 128,
+  "num_merges": 87,
+  "add_bos_token": true,
+  "add_eos_token": true,
+  "max_length": 128,
+  "bos_token": "<bos>",
+  "eos_token": "<eos>",
+  "unk_token": "<unk>",
+  "pad_token": "<pad>",
+  "mask_token": "<mask>",
+  "space_prefix": "Ġ"
+}

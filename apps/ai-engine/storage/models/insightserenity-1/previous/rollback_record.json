@@ -1,0 +1,8 @@
+{
+  "event": "rollback",
+  "from_version": "v0.0.2-demo",
+  "to_version": "v0.0.1-demo",
+  "reason": "Testing rollback mechanism",
+  "rolled_back_at": "2026-04-26T17:58:25.110251+00:00",
+  "rolled_back_by": "scripts/models/rollback.py"
+}

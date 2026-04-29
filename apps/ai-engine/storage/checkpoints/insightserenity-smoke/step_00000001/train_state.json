@@ -1,0 +1,10 @@
+{
+  "global_step": 1,
+  "epoch": 0,
+  "best_metric": Infinity,
+  "best_step": 0,
+  "train_loss": 4.039288520812988,
+  "val_loss": 0.0,
+  "elapsed_secs": 0.0,
+  "model_checksum_sha256": "42888b410b8fdb1964803d9f81ba22af6ff639731fc2ea4ba045e50360510d76"
+}

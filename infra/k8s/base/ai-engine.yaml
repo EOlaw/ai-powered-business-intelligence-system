@@ -1,0 +1,126 @@
+# InsightSerenity AI Engine — Kubernetes Manifests
+# ==================================================
+# Deployment + Service + HPA
+#
+# The AI engine is stateful (model weights in memory), so we run a single
+# replica by default and scale horizontally only with GPU nodes.
+# Use StatefulSet if you need stable network identity for sticky sessions.
+
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-engine
+  labels:
+    app: ai-engine
+    app.kubernetes.io/component: ai-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-engine
+  strategy:
+    type: Recreate      # GPU node: single replica, Recreate avoids port conflicts
+  template:
+    metadata:
+      labels:
+        app: ai-engine
+    spec:
+      serviceAccountName: ai-engine
+      securityContext:
+        runAsNonRoot: true
+        runAsUser:    1000
+      terminationGracePeriodSeconds: 60    # Allow in-flight inference to complete
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: model-storage-pvc
+      containers:
+        - name: ai-engine
+          image: insightserenity/ai-engine:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+              name: http
+          volumeMounts:
+            - name: model-storage
+              mountPath: /app/storage
+          env:
+            - name: ENVIRONMENT
+              value: production
+            - name: SERVING_PORT
+              value: "8001"
+            - name: SERVING_INTERNAL_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shared-secrets
+                  key:  SERVING_INTERNAL_API_SECRET
+            - name: MODEL_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: ai-engine-config
+                  key:  MODEL_NAME
+          resources:
+            requests:
+              cpu:    500m
+              memory: 4Gi
+            limits:
+              cpu:    4
+              memory: 16Gi
+              # nvidia.com/gpu: "1"    # Uncomment for GPU nodes
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 8001
+            initialDelaySeconds: 60     # Model loading takes time
+            periodSeconds:       10
+            failureThreshold:    6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 90
+            periodSeconds:       30
+            failureThreshold:    3
+---
+# ── PersistentVolumeClaim — model weight storage ──────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-storage-pvc
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: ssd
+---
+# ── Service ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-engine
+  labels:
+    app: ai-engine
+spec:
+  selector:
+    app: ai-engine
+  ports:
+    - name: http
+      port:       8001
+      targetPort: 8001
+  type: ClusterIP
+---
+# ── ConfigMap ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-engine-config
+data:
+  MODEL_NAME: "insightserenity-1"
+---
+# ── ServiceAccount ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-engine

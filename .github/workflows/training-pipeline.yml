@@ -1,0 +1,125 @@
+# InsightSerenity — Model Training Pipeline
+# ==========================================
+# Triggered manually (workflow_dispatch) or on a schedule.
+# Runs the data flywheel: crawl → clean → train → evaluate → promote.
+#
+# Steps:
+#   1. Launch a GPU runner (or use a pre-provisioned one)
+#   2. Pull latest training data from S3
+#   3. Run incremental pretraining or fine-tuning
+#   4. Evaluate perplexity — reject if regression > 2%
+#   5. Push model weights to S3
+#   6. Trigger a hot-swap of the model in the running AI engine pod
+
+name: Model Training Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      training_mode:
+        description: 'Training mode: pretrain | finetune | rlhf'
+        required: true
+        default: finetune
+        type: choice
+        options: [pretrain, finetune, rlhf]
+      max_steps:
+        description: 'Training steps (0 = use config default)'
+        required: false
+        default: '0'
+      model_name:
+        description: 'Model version name (e.g. v1.2.0)'
+        required: true
+
+  schedule:
+    # Weekly incremental fine-tune: every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  train:
+    name: Train — ${{ inputs.training_mode || 'finetune' }}
+    runs-on: [self-hosted, gpu]    # GPU runner: register one with the Actions agent
+    timeout-minutes: 360           # 6-hour cap
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install training dependencies
+        run: pip install -r apps/ai-engine/requirements.txt
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TRAIN_ROLE_ARN }}
+          aws-region:     ${{ secrets.AWS_REGION }}
+
+      - name: Pull latest training data from S3
+        run: |
+          aws s3 sync s3://${{ secrets.MODEL_BUCKET }}/datasets/latest/ \
+            apps/ai-engine/storage/datasets/ \
+            --only-show-errors
+
+      - name: Pull base model weights from S3
+        run: |
+          aws s3 sync s3://${{ secrets.MODEL_BUCKET }}/models/insightserenity-1/latest/ \
+            apps/ai-engine/storage/models/insightserenity-1/latest/ \
+            --only-show-errors
+
+      - name: Run training
+        env:
+          TRAINING_MODE: ${{ inputs.training_mode || 'finetune' }}
+          MAX_STEPS:     ${{ inputs.max_steps || '0' }}
+          MODEL_VERSION: ${{ inputs.model_name || format('auto-{0}', github.run_id) }}
+          PYTHONPATH:    apps/ai-engine
+        run: |
+          cd apps/ai-engine
+          python scripts/training/train.py \
+            --mode "$TRAINING_MODE" \
+            --max-steps "$MAX_STEPS" \
+            --output-dir "storage/models/insightserenity-1/$MODEL_VERSION"
+
+      - name: Evaluate model
+        id: evaluate
+        env:
+          PYTHONPATH: apps/ai-engine
+          MODEL_VERSION: ${{ inputs.model_name || format('auto-{0}', github.run_id) }}
+        run: |
+          cd apps/ai-engine
+          python scripts/training/evaluate.py \
+            --model-dir "storage/models/insightserenity-1/$MODEL_VERSION" \
+            --baseline-dir "storage/models/insightserenity-1/latest" \
+            --max-regression 0.02 \
+            --output-json /tmp/eval_result.json
+
+          # Export perplexity to workflow summary
+          echo "## Evaluation Results" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/eval_result.json >> $GITHUB_STEP_SUMMARY
+
+      - name: Push trained model to S3
+        env:
+          MODEL_VERSION: ${{ inputs.model_name || format('auto-{0}', github.run_id) }}
+        run: |
+          aws s3 sync apps/ai-engine/storage/models/insightserenity-1/$MODEL_VERSION/ \
+            s3://${{ secrets.MODEL_BUCKET }}/models/insightserenity-1/$MODEL_VERSION/ \
+            --only-show-errors
+
+          # Update "latest" pointer
+          aws s3 sync s3://${{ secrets.MODEL_BUCKET }}/models/insightserenity-1/$MODEL_VERSION/ \
+            s3://${{ secrets.MODEL_BUCKET }}/models/insightserenity-1/latest/ \
+            --delete --only-show-errors
+
+      - name: Hot-swap model in AI engine (zero-downtime)
+        run: |
+          # Trigger the AI engine to reload from storage without a pod restart
+          curl -X POST http://${{ secrets.AI_ENGINE_INTERNAL_URL }}/admin/reload-model \
+            -H "Authorization: Bearer ${{ secrets.SERVING_INTERNAL_API_SECRET }}" \
+            -d '{"model": "insightserenity-1", "version": "latest"}' \
+            --max-time 30 || true
+
+          # Fallback: rolling restart if reload API not available
+          kubectl rollout restart deployment/ai-engine \
+            -n ${{ secrets.K8S_NAMESPACE || 'insightserenity-production' }} || true

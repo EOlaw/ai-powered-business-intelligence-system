@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Logs
+logs/
+*.log
+storage/logs/
+
+# Data and model artifacts
+storage/checkpoints/
+storage/datasets/
+storage/models/
+storage/tokenizers/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.bin
+*.pkl
+*.pickle
+*.joblib
+*.parquet
+*.jsonl
+*.csv
+*.tsv
+*.sqlite
+*.sqlite3
+*.db
+
+# ML experiment tracking
+mlruns/
+wandb/
+lightning_logs/
+runs/
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/
+
+# Docker and Terraform local state
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

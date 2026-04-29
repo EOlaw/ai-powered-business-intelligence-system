@@ -1,0 +1,86 @@
+# InsightSerenity — Continuous Deployment to Staging
+# ====================================================
+# Triggered on every push to main after CI passes.
+# Builds Docker images, pushes to ECR, deploys to the staging K8s cluster.
+
+name: CD — Staging
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: false   # Don't cancel in-progress deploys
+
+jobs:
+  deploy-staging:
+    name: Build & Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      id-token: write   # Required for OIDC AWS auth
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume:  ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region:      ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push api-gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file:    infra/docker/api-gateway.Dockerfile
+          push:    true
+          tags:    ${{ steps.ecr-login.outputs.registry }}/insightserenity-staging/api-gateway:staging
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Build & push ai-engine
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file:    infra/docker/ai-engine.Dockerfile
+          push:    true
+          tags:    ${{ steps.ecr-login.outputs.registry }}/insightserenity-staging/ai-engine:staging
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Configure kubectl
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME_STAGING }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Run DB migrations
+        run: |
+          kubectl run db-migrate-${{ github.sha }} \
+            --image=${{ steps.ecr-login.outputs.registry }}/insightserenity-staging/api-gateway:staging \
+            --restart=Never \
+            --env="DATABASE_URL=${{ secrets.DATABASE_URL_STAGING }}" \
+            --command -- npx prisma migrate deploy
+          kubectl wait --for=condition=complete job/db-migrate-${{ github.sha }} --timeout=120s || true
+          kubectl delete pod db-migrate-${{ github.sha }} --ignore-not-found
+
+      - name: Deploy with Kustomize
+        run: kubectl apply -k infra/k8s/overlays/staging
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/staging-api-gateway -n insightserenity-staging --timeout=300s
+          kubectl rollout status deployment/staging-ai-engine   -n insightserenity-staging --timeout=300s
+
+      - name: Smoke test
+        run: |
+          GW_URL=$(kubectl get svc staging-api-gateway -n insightserenity-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          curl -f "http://${GW_URL}/health" || exit 1
+          echo "Staging deploy successful"

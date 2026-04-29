@@ -1,0 +1,51 @@
+[build-system]
+requires      = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name        = "insightserenity-ai-engine"
+version     = "1.0.0"
+description = "InsightSerenity self-hosted AI engine — tokenizer, LLM, RL, agents"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+# ── pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths          = ["tests"]
+asyncio_mode       = "auto"
+addopts            = "-v --tb=short --strict-markers"
+markers            = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+    "integration: marks tests requiring external services",
+    "gpu: marks tests requiring a CUDA device",
+]
+
+# ── Black ─────────────────────────────────────────────────────────────────────
+[tool.black]
+line-length    = 100
+target-version = ["py311"]
+skip-string-normalization = false
+
+# ── isort ─────────────────────────────────────────────────────────────────────
+[tool.isort]
+profile        = "black"
+line_length    = 100
+known_first_party = ["src"]
+
+# ── Ruff (linter) ─────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B008"]
+
+# ── mypy ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version         = "3.11"
+strict                 = false
+ignore_missing_imports = true
+warn_return_any        = true
+warn_unused_configs    = true
