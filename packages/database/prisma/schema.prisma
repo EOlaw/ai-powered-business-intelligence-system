@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  apiKeys      ApiKey[]
+  usageRecords UsageRecord[]
+  auditEvents  AuditEvent[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String   @unique
+  name           String?
+  role           UserRole @default(ANALYST)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  scopes         String[]  @default([])
+  isActive       Boolean   @default(true)
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  usageRecords UsageRecord[]
+
+  @@index([organizationId])
+}
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  organizationId String
+  apiKeyId       String?
+  endpoint       String
+  model          String?
+  promptTokens   Int      @default(0)
+  outputTokens   Int      @default(0)
+  latencyMs      Int
+  statusCode     Int
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey?       @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([endpoint])
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  resource       String
+  resourceId     String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([action])
+}
+
+enum Plan {
+  FREE
+  TEAM
+  BUSINESS
+  ENTERPRISE
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  ANALYST
+  VIEWER
+}
