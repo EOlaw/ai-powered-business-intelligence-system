@@ -295,8 +295,7 @@ class WebCrawler:
                         self._queue.get(), timeout=5.0
                     )
                 except asyncio.TimeoutError:
-                    # Queue has been empty for 5s — check if we should keep waiting
-                    self._queue.task_done()
+                    # Queue has been empty for 5s; keep waiting for new work.
                     continue
                 except asyncio.CancelledError:
                     break

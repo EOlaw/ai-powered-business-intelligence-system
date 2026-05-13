@@ -1,0 +1,2 @@
+# Install the Python AI engine dependencies from the repository root.
+-r apps/ai-engine/requirements.txt

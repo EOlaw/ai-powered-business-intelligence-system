@@ -88,7 +88,7 @@ MIN_CORPUS_DOCS = 1_000
 def count_corpus_lines(path: str) -> int:
     """Count non-empty lines in a JSONL file without loading it into memory."""
     n = 0
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 n += 1
@@ -111,7 +111,7 @@ def split_corpus(
     Returns (train_path, val_path_or_None, test_path_or_None).
     """
     source = Path(data_path)
-    with open(source) as f:
+    with open(source, encoding="utf-8") as f:
         lines = [l for l in f if l.strip()]
 
     rng = random.Random(seed)
@@ -170,7 +170,8 @@ def write_dataset_card(
     def n_lines(p):
         if not p or not Path(p).exists():
             return 0
-        return sum(1 for l in open(p) if l.strip())
+        with open(p, encoding="utf-8") as f:
+            return sum(1 for l in f if l.strip())
 
     def md5(p):
         if not p or not Path(p).exists():
@@ -207,6 +208,7 @@ def write_dataset_card(
 # ─────────────────────────────────────────────────────────────────────────────
 
 MODEL_REGISTRY = {
+    "gpt-tiny":   GPTConfig(d_model=128, num_heads=4, num_layers=2, max_seq_len=256),
     "gpt-small":  GPT_SMALL,
     "gpt-medium": GPT_MEDIUM,
     "gpt-large":  GPT_LARGE,
@@ -491,7 +493,7 @@ def parse_args() -> argparse.Namespace:
 
     # Model
     parser.add_argument("--model", default="gpt-small",
-                        help="Model architecture: gpt-small | gpt-medium | gpt-large | bert-base")
+                        help="Model architecture: gpt-tiny | gpt-small | gpt-medium | gpt-large | bert-base")
     parser.add_argument("--seq-len", type=int, default=1024,
                         help="Maximum sequence length (tokens)")
 

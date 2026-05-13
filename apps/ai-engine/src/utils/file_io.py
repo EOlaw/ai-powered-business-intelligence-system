@@ -94,7 +94,8 @@ def atomic_write(path: PathLike, content: Union[str, bytes], mode: str = "w") ->
     # Write to a sibling temp file in the same directory (same filesystem)
     tmp_fd, tmp_path = tempfile.mkstemp(dir=destination.parent)
     try:
-        with os.fdopen(tmp_fd, mode) as f:
+        open_kwargs = {} if "b" in mode else {"encoding": "utf-8"}
+        with os.fdopen(tmp_fd, mode, **open_kwargs) as f:
             f.write(content)
         # Atomic rename — on POSIX this is guaranteed to be atomic
         shutil.move(tmp_path, str(destination))

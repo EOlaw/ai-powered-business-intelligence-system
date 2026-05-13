@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Data And Training Concept</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5d6977;
+      --line: #d8dee6;
+      --surface: #ffffff;
+      --soft: #f5f7fa;
+      --accent: #0f766e;
+      --accent-2: #7c3aed;
+      --warn: #a16207;
+      --code: #101828;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #eef2f6;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #0b1720;
+      color: white;
+      padding: 48px 24px 34px;
+      border-bottom: 6px solid var(--accent);
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.8rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 820px;
+      margin: 0;
+      color: #d9e3ee;
+      font-size: 1.08rem;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 18px 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      padding: 16px;
+      min-height: 118px;
+    }
+
+    .tile strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .step {
+      border: 1px solid #b7c5d4;
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 96px;
+    }
+
+    .step span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .statbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .stat {
+      border-left: 4px solid var(--accent-2);
+      background: #faf8ff;
+      padding: 12px;
+      border-radius: 6px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 1.4rem;
+      line-height: 1.1;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    code, pre {
+      font-family: "Cascadia Code", Consolas, "Liberation Mono", monospace;
+    }
+
+    pre {
+      background: var(--code);
+      color: #f9fafb;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 12px 0 0;
+      font-size: 0.92rem;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin: 10px 0 0;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    .callout {
+      border-color: #f0d58c;
+      background: #fffbeb;
+    }
+
+    .callout h2 {
+      color: var(--warn);
+    }
+
+    footer {
+      color: var(--muted);
+      padding: 20px 0 42px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 860px) {
+      .grid, .flow, .statbar {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        padding-top: 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>AI Data And Training Concept</h1>
+      <p class="lead">What the crawler/training test proves, why it matters, and how the AI engine grows beyond website crawling into a full business intelligence model lifecycle.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>The Short Answer</h2>
+      <p>The AI engine is not only a website crawler. The crawler is one way to collect training data.</p>
+      <p>The broader goal is to build an AI-powered business intelligence system that can collect data, clean it, train or update models, save model versions, and serve those models through APIs and dashboards.</p>
+      <pre>seed URLs -> crawl pages -> clean text -> train tokenizer -> train model -> save checkpoint</pre>
+    </section>
+
+    <section>
+      <h2>What The Test Produced</h2>
+      <div class="statbar">
+        <div class="stat"><b>20</b><span>pages crawled</span></div>
+        <div class="stat"><b>17</b><span>pages extracted</span></div>
+        <div class="stat"><b>16</b><span>after dedup</span></div>
+        <div class="stat"><b>10</b><span>final documents</span></div>
+        <div class="stat"><b>30</b><span>training steps</span></div>
+      </div>
+      <pre>model: gpt-tiny
+final train loss: about 3.53
+final perplexity: about 34.22
+checkpoint: storage/checkpoints/insightserenity-test/step_00000030</pre>
+      <p class="muted">This does not mean the tiny model is production-ready. It means the system can successfully move from raw data to a trained model artifact.</p>
+    </section>
+
+    <section>
+      <h2>Why This Test Matters</h2>
+      <p>This test proves that the model factory works.</p>
+      <div class="grid">
+        <div class="tile"><strong>Data</strong>Collect source data, extract text, filter quality, and remove duplicates.</div>
+        <div class="tile"><strong>Training</strong>Build a tokenizer, load the corpus, train a model, and log metrics.</div>
+        <div class="tile"><strong>Artifacts</strong>Save checkpoints, training state, optimizer state, scheduler state, and checksums.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>What We Are Building</h2>
+      <p>We are building an AI-powered business intelligence platform, not just a chatbot wrapper.</p>
+      <div class="flow">
+        <div class="step"><span>1</span><strong>Data Sources</strong><br>Web, docs, CSVs, databases, reports.</div>
+        <div class="step"><span>2</span><strong>Processing</strong><br>Clean, normalize, dedup, filter.</div>
+        <div class="step"><span>3</span><strong>Training</strong><br>Tokenizer and model training.</div>
+        <div class="step"><span>4</span><strong>Registry</strong><br>Checkpoints, versions, promotion.</div>
+        <div class="step"><span>5</span><strong>Serving</strong><br>API, dashboard, SDK, users.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Is Crawling The Only Data Source?</h2>
+      <p>No. The crawler is just one front door. The trainer can use any compatible clean JSONL corpus.</p>
+      <ul>
+        <li>Web pages</li>
+        <li>Business reports and analytics summaries</li>
+        <li>FAQs and knowledge-base articles</li>
+        <li>Customer support conversations</li>
+        <li>Sales notes and CRM exports</li>
+        <li>CSV files or database records converted into text</li>
+        <li>Manual instruction/response examples</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Why Convert Data Into A Corpus?</h2>
+      <p>Raw data is messy. The model learns from whatever you feed it, so the pipeline turns noisy source material into cleaner training text.</p>
+      <pre>raw HTML -> extracted text -> exact dedup -> near dedup -> quality filtering -> final corpus</pre>
+    </section>
+
+    <section>
+      <h2>Why Train A Tokenizer?</h2>
+      <p>A model does not directly understand words or pages. It understands token IDs.</p>
+      <pre>"business intelligence" -> [token ids]</pre>
+      <p>Training the tokenizer on your own corpus helps the model represent the words and patterns that appear in your domain.</p>
+    </section>
+
+    <section>
+      <h2>Why Save Checkpoints?</h2>
+      <p>Checkpoints are saved training snapshots. They allow resume, comparison, promotion, auditing, rollback, and integrity checks.</p>
+      <pre>model.pt         model weights
+optimizer.pt     optimizer state
+scheduler.pt     learning-rate scheduler state
+train_state.json training progress, metrics, checksum</pre>
+    </section>
+
+    <section class="callout">
+      <h2>Why Use gpt-tiny?</h2>
+      <p><code>gpt-tiny</code> is for local development and CPU testing. It proves the workflow works quickly. <code>gpt-small</code> is much larger and should be used with a GPU or longer training time.</p>
+    </section>
+
+    <section>
+      <h2>How The System Becomes Useful</h2>
+      <p>The AI becomes more useful when you add richer and larger business data, then repeatedly train, evaluate, promote, and serve better model versions.</p>
+      <ul>
+        <li>Answer questions about company knowledge.</li>
+        <li>Summarize business reports.</li>
+        <li>Generate insights from operational data.</li>
+        <li>Classify or route support issues.</li>
+        <li>Create executive summaries.</li>
+        <li>Power dashboards and APIs with AI-generated explanations.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>The Purpose</h2>
+      <p>The purpose is to demonstrate a production-style AI system for business intelligence. The value is not only the model. The value is the lifecycle.</p>
+      <pre>data in -> cleaning -> training -> evaluation -> versioning -> promotion -> serving -> monitoring -> rollback</pre>
+      <p><strong>In plain English:</strong> we are building the factory that can repeatedly turn approved business data into usable AI model versions.</p>
+    </section>
+  </main>
+
+  <footer>
+    AI-Powered Business Intelligence System
+  </footer>
+</body>
+</html>
