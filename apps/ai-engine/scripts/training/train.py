@@ -273,7 +273,8 @@ def main(args: argparse.Namespace) -> None:
             sys.exit(
                 f"ERROR: Training corpus is too small: {doc_count} documents. "
                 f"Minimum required: {args.min_corpus_docs}. "
-                f"Add more data or reduce --min-corpus-docs for experimentation."
+                f"Add more data or rerun with --min-corpus-docs {doc_count} "
+                f"for local experimentation."
             )
         logger.info("Corpus size verified", doc_count=doc_count)
 

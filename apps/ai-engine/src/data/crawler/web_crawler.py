@@ -368,6 +368,13 @@ class WebCrawler:
 
         if not result.is_success:
             self._pages_failed += 1
+            logger.warning(
+                "Crawl fetch failed",
+                url=url,
+                status_code=result.status_code,
+                error=result.error,
+                content_type=result.content_type,
+            )
             return
 
         # ── Write output ─────────────────────────────────────────────────────

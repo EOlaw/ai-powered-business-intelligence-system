@@ -190,6 +190,9 @@ class HTMLExtractor:
 
         # Pass 2: class/id pattern removal
         for el in soup.find_all(True):
+            if el.name in {"html", "body"}:
+                continue
+
             if el.attrs is None:
                 continue
 

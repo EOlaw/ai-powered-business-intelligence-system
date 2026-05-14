@@ -9,6 +9,7 @@ import { useAuth }   from '../hooks/useAuth.js';
 import clsx          from 'clsx';
 
 const NAV_ITEMS = [
+  { href: '/ask',               label: 'Ask AI',    icon: 'AI' },
   { href: '/dashboard',         label: 'Overview',  icon: '⊞' },
   { href: '/dashboard/api-keys', label: 'API Keys',  icon: '🔑' },
   { href: '/dashboard/usage',   label: 'Usage',     icon: '📊' },

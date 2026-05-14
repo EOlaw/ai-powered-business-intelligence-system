@@ -2,6 +2,15 @@
 
 This file shows the manual steps to rebuild the dataset, tokenizer, and test model from a fresh terminal.
 
+Model-specific runbooks:
+
+```text
+docs/model-runbooks/TINY_MODEL_RUNBOOK.md
+docs/model-runbooks/SMALL_MODEL_RUNBOOK.md
+docs/model-runbooks/MEDIUM_MODEL_RUNBOOK.md
+docs/model-runbooks/LARGE_MODEL_RUNBOOK.md
+```
+
 The commands below assume you are using Git Bash on Windows from this repo:
 
 ```bash
@@ -168,6 +177,8 @@ storage/checkpoints/insightserenity-smoke/step_00000001
 
 Use `gpt-small` only when you have enough time or a GPU. In this repo, `gpt-small` is about 85M parameters, so it is very slow on CPU.
 
+The bundled InsightSerenity crawl currently produces about 10 final documents, so keep the local guard at `10` unless you have expanded the seed list and rebuilt the dataset.
+
 ```bash
 python scripts/training/train.py \
   --model gpt-small \
@@ -178,10 +189,33 @@ python scripts/training/train.py \
   --epochs 3 \
   --batch-size 4 \
   --lr 3e-4 \
-  --min-corpus-docs 1000
+  --min-corpus-docs 10
 ```
 
-For serious training, add many more seed URLs first and rerun the data pipeline. The default training guard expects at least `1000` documents.
+ train longer and use a better tokenizer size
+```bash
+python scripts/training/train.py \
+  --model gpt-small \
+  --seq-len 128 \
+  --tokenizer storage/tokenizers/insightserenity-bpe-256 \
+  --data storage/datasets/05_corpus.jsonl \
+  --output storage/checkpoints \
+  --run-name insightserenity-small-wiki \
+  --epochs 5 \
+  --batch-size 1 \
+  --lr 3e-4 \
+  --min-corpus-docs 215 \
+  --no-amp \
+  --num-workers 0 \
+  --save-every 100 \
+  --log-every 10
+```
+
+For serious training, add many more seed URLs first and rerun the data pipeline. Once `storage/datasets/05_corpus.jsonl` has at least 1000 lines, raise the guard back to:
+
+```bash
+--min-corpus-docs 1000
+```
 
 ## 9. Promote A Checkpoint
 
@@ -190,6 +224,7 @@ After training, promote a checkpoint into model storage:
 ```bash
 python scripts/models/promote.py \
   --checkpoint storage/checkpoints/insightserenity-test/step_00000030 \
+  --tokenizer storage/tokenizers/insightserenity-bpe-256 \
   --name insightserenity-1 \
   --version v0.0.3
 ```
@@ -205,7 +240,7 @@ storage/models/
 Run the FastAPI server:
 
 ```bash
-python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001 --reload
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001
 ```
 
 Health check:
@@ -219,6 +254,24 @@ List models:
 ```bash
 curl http://localhost:8001/v1/models
 ```
+
+## 11. Start The Client Chat UI
+
+Open a second terminal from the repo root:
+
+```bash
+cd apps/dashboard
+npm install
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3001
+```
+
+The chat UI sends questions through the dashboard proxy at `/api/chat`, which calls the AI engine at `http://localhost:8001/v1/chat/completions`.
 
 ## Troubleshooting
 
